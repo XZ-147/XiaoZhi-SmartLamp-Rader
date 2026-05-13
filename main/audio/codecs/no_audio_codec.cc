@@ -239,7 +239,7 @@ NoAudioCodecSimplexPdm::NoAudioCodecSimplexPdm(int input_sample_rate, int output
 			#endif
 
         },
-        .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg = {
             .mclk = I2S_GPIO_UNUSED,
             .bclk = spk_bclk,
@@ -253,6 +253,7 @@ NoAudioCodecSimplexPdm::NoAudioCodecSimplexPdm(int input_sample_rate, int output
             },
         },
     };
+    tx_std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_RIGHT;
     ESP_ERROR_CHECK(i2s_channel_init_std_mode(tx_handle_, &tx_std_cfg));
 #if SOC_I2S_SUPPORTS_PDM_RX
     // Create a new channel for MIC in PDM mode
@@ -271,6 +272,7 @@ NoAudioCodecSimplexPdm::NoAudioCodecSimplexPdm(int input_sample_rate, int output
             },
         },
     };
+    pdm_rx_cfg.slot_cfg.slot_mask = I2S_PDM_SLOT_RIGHT;
     ESP_ERROR_CHECK(i2s_channel_init_pdm_rx_mode(rx_handle_, &pdm_rx_cfg));
 #else
     ESP_LOGE(TAG, "PDM is not supported");
@@ -328,4 +330,24 @@ int NoAudioCodecSimplexPdm::Read(int16_t* dest, int samples) {
 
     // 计算实际读取的样本数
     return bytes_read / sizeof(int16_t);
+}
+
+int NoAudioCodecSimplexPdm::Write(const int16_t* data, int samples)
+{
+    size_t bytes_write;
+    int16_t *buffer = (int16_t*)malloc(samples*sizeof(int16_t));
+    double volume_factor = pow(double(output_volume_)/50.0, 2);
+    for (int i = 0; i < samples; i++) {
+        int32_t temp = data[i] * volume_factor;
+        if (temp > INT16_MAX) {
+            buffer[i] = INT16_MAX;
+        } else if (temp < INT16_MIN) {
+            buffer[i] = INT16_MIN;
+        } else {
+            buffer[i] = static_cast<int16_t>(temp);
+        }
+    }
+    i2s_channel_write(tx_handle_,buffer,samples*sizeof(int16_t),&bytes_write,portMAX_DELAY);
+    free(buffer);
+    return bytes_write;  
 }

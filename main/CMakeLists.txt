@@ -216,6 +216,8 @@ elseif(CONFIG_BOARD_TYPE_LABPLUS_LEDONG_V2)
     set(BOARD_TYPE "labplus-ledong-v2") 
 elseif(CONFIG_BOARD_TYPE_SURFER_C3_1_14TFT)
     set(BOARD_TYPE "surfer-c3-1.14tft")
+elseif(CONFIG_BOARD_TYPE_CX_ESP32_S3)
+    set(BOARD_TYPE "cx-esp32s3")
 endif()
 file(GLOB BOARD_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/*.cc
@@ -376,6 +378,7 @@ endif()
 if(CONFIG_BOARD_TYPE_ECHOEAR)
 
 idf_build_get_property(build_components BUILD_COMPONENTS)
+set(EMOTE_GFX_COMPONENT "")
 foreach(COMPONENT ${build_components})
     if(COMPONENT MATCHES "esp_emote_gfx" OR COMPONENT MATCHES "espressif2022__esp_emote_gfx")
         set(EMOTE_GFX_COMPONENT ${COMPONENT})
@@ -385,11 +388,15 @@ foreach(COMPONENT ${build_components})
     endif()
 endforeach()
 
-spiffs_create_partition_assets(
-    assets_A
-    ${SPIFFS_DIR}
-    FLASH_IN_PROJECT
-    MMAP_FILE_SUPPORT_FORMAT ".aaf, ttf, bin"
-    IMPORT_INC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}
-)
+if(EMOTE_GFX_COMPONENT)
+    spiffs_create_partition_assets(
+        assets_A
+        ${SPIFFS_DIR}
+        FLASH_IN_PROJECT
+        MMAP_FILE_SUPPORT_FORMAT ".aaf, ttf, bin"
+        IMPORT_INC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}
+    )
+else()
+    message(WARNING "espressif2022/esp_emote_gfx component not found. ECHOEAR board emoji assets will not be available.")
+endif()
 endif()
