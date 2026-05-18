@@ -140,6 +140,9 @@ choice BOARD_TYPE
     config BOARD_TYPE_BREAD_COMPACT_ESP32
         bool "Bread Compact ESP32 DevKit (面包板)"
         depends on IDF_TARGET_ESP32
+    config BOARD_TYPE_ESP32_WROVER_E_N16R8_ES8375_LCD
+        bool "ESP32-WROVER-E N16R8 ES8375 LCD"
+        depends on IDF_TARGET_ESP32
     config BOARD_TYPE_BREAD_COMPACT_ESP32_LCD
         bool "Bread Compact ESP32 DevKit + LCD (面包板)"
         depends on IDF_TARGET_ESP32

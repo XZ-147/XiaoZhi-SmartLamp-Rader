@@ -15,7 +15,8 @@ Es8374AudioCodec::Es8374AudioCodec(void* i2c_master_handle, i2c_port_t i2c_port,
     input_gain_ = 30;
 
     pa_pin_ = pa_pin;
-    CreateDuplexChannels(mclk, bclk, ws, dout, din);
+//    CreateDuplexChannels(mclk, bclk, ws, dout, din);
+    CreateDuplexChannels(use_mclk ? mclk : GPIO_NUM_NC, bclk, ws, dout, din);
 
     // Do initialize of related interface: data_if, ctrl_if and gpio_if
     audio_codec_i2s_cfg_t i2s_cfg = {
@@ -75,6 +76,7 @@ Es8374AudioCodec::~Es8374AudioCodec() {
 
 void Es8374AudioCodec::CreateDuplexChannels(gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din) {
     assert(input_sample_rate_ == output_sample_rate_);
+    ESP_LOGI(TAG, "I2S MCLK GPIO: %d", mclk);
 
     i2s_chan_config_t chan_cfg = {
         .id = I2S_NUM_0,

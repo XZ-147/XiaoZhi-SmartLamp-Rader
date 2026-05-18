@@ -1,0 +1,11 @@
+{
+    "target": "esp32",
+    "builds": [
+        {
+            "name": "esp32-wrover-e-N16R8-es8375-lcd",
+            "sdkconfig_append": [
+                "CONFIG_BOARD_TYPE_ESP32_WROVER_E_N16R8_ES8375_LCD=y"
+            ]
+        }
+    ]
+}

@@ -6,6 +6,7 @@ set(SOURCES "audio/audio_codec.cc"
             "audio/codecs/box_audio_codec.cc"
             "audio/codecs/es8311_audio_codec.cc"
             "audio/codecs/es8374_audio_codec.cc"
+            "audio/codecs/es8375_audio_codec.cc"
             "audio/codecs/es8388_audio_codec.cc"
             "audio/codecs/es8389_audio_codec.cc"
             "audio/codecs/dummy_audio_codec.cc"
@@ -99,6 +100,8 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_NT26)
     set(BUILTIN_ICON_FONT font_awesome_14_1)
 elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_ESP32)
     set(BOARD_TYPE "bread-compact-esp32")
+elseif(CONFIG_BOARD_TYPE_ESP32_WROVER_E_N16R8_ES8375_LCD)
+    set(BOARD_TYPE "esp32-wrover-e-N16R8-es8375-lcd")
 elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_ESP32_LCD)
     set(BOARD_TYPE "bread-compact-esp32-lcd")
     set(BUILTIN_TEXT_FONT font_puhui_basic_14_1)
