@@ -24,6 +24,13 @@ private:
     i2c_master_bus_handle_t codec_i2c_bus_ = nullptr;
     Display* display_ = nullptr;
 
+    void LogExistingI2cBus(const char* stage) {
+        i2c_master_bus_handle_t existing_bus = nullptr;
+        esp_err_t ret = i2c_master_get_bus_handle(AUDIO_CODEC_I2C_NUM, &existing_bus);
+        ESP_LOGI(TAG, "I2C port %d %s: %s handle=%p",
+            AUDIO_CODEC_I2C_NUM, stage, esp_err_to_name(ret), existing_bus);
+    }
+
     void PrepareCodecI2cPins() {
         ESP_ERROR_CHECK(gpio_reset_pin(AUDIO_CODEC_I2C_SDA_PIN));
         ESP_ERROR_CHECK(gpio_reset_pin(AUDIO_CODEC_I2C_SCL_PIN));
@@ -36,9 +43,74 @@ private:
             gpio_get_level(AUDIO_CODEC_I2C_SCL_PIN));
     }
 
+    bool DiagnosticScanI2cBus(gpio_num_t sda, gpio_num_t scl, const char* label) {
+        ESP_LOGI(TAG, "Diagnostic I2C scan (%s): port=%d sda=%d scl=%d",
+            label, AUDIO_CODEC_I2C_NUM, sda, scl);
+
+        ESP_ERROR_CHECK(gpio_reset_pin(sda));
+        ESP_ERROR_CHECK(gpio_reset_pin(scl));
+        ESP_ERROR_CHECK(gpio_set_direction(sda, GPIO_MODE_INPUT));
+        ESP_ERROR_CHECK(gpio_set_direction(scl, GPIO_MODE_INPUT));
+        ESP_ERROR_CHECK(gpio_set_pull_mode(sda, GPIO_PULLUP_ONLY));
+        ESP_ERROR_CHECK(gpio_set_pull_mode(scl, GPIO_PULLUP_ONLY));
+        ESP_LOGI(TAG, "Diagnostic I2C idle level (%s): sda=%d scl=%d",
+            label, gpio_get_level(sda), gpio_get_level(scl));
+
+        i2c_master_bus_handle_t scan_bus = nullptr;
+        i2c_master_bus_config_t bus_config = {
+            .i2c_port = AUDIO_CODEC_I2C_NUM,
+            .sda_io_num = sda,
+            .scl_io_num = scl,
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+            .glitch_ignore_cnt = 7,
+            .intr_priority = 0,
+            .trans_queue_depth = 0,
+            .flags = {
+                .enable_internal_pullup = 1,
+            },
+        };
+        esp_err_t ret = i2c_new_master_bus(&bus_config, &scan_bus);
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "Diagnostic I2C scan (%s) bus init failed: %s", label, esp_err_to_name(ret));
+            return false;
+        }
+
+        bool found = false;
+        for (uint8_t addr = 0x08; addr < 0x78; ++addr) {
+            if (i2c_master_probe(scan_bus, addr, 50) == ESP_OK) {
+                ESP_LOGI(TAG, "Diagnostic I2C scan (%s) found device at 0x%02x", label, addr);
+                found = true;
+            }
+        }
+        if (!found) {
+            ESP_LOGW(TAG, "Diagnostic I2C scan (%s) found no devices", label);
+        }
+
+        ESP_ERROR_CHECK(i2c_del_master_bus(scan_bus));
+        ESP_ERROR_CHECK(gpio_reset_pin(sda));
+        ESP_ERROR_CHECK(gpio_reset_pin(scl));
+        return found;
+    }
+
+    void RunCodecI2cDiagnostics() {
+        LogExistingI2cBus("before diagnostic scan");
+        bool normal_found = DiagnosticScanI2cBus(AUDIO_CODEC_I2C_SDA_PIN, AUDIO_CODEC_I2C_SCL_PIN, "normal");
+        LogExistingI2cBus("after normal diagnostic scan");
+
+        if (!normal_found) {
+            bool swapped_found = DiagnosticScanI2cBus(AUDIO_CODEC_I2C_SCL_PIN, AUDIO_CODEC_I2C_SDA_PIN, "sda/scl swapped");
+            if (swapped_found) {
+                ESP_LOGW(TAG, "I2C device was found only when SDA/SCL were swapped; check schematic labels or config.h pin order");
+            }
+            LogExistingI2cBus("after swapped diagnostic scan");
+        }
+    }
+
     void InitializeCodecI2c() {
         ESP_LOGI(TAG, "Initialize codec I2C port=%d sda=%d scl=%d", AUDIO_CODEC_I2C_NUM, AUDIO_CODEC_I2C_SDA_PIN, AUDIO_CODEC_I2C_SCL_PIN);
+        RunCodecI2cDiagnostics();
         PrepareCodecI2cPins();
+        LogExistingI2cBus("before codec bus init");
         i2c_master_bus_config_t bus_config = {
             .i2c_port = AUDIO_CODEC_I2C_NUM,
             .sda_io_num = AUDIO_CODEC_I2C_SDA_PIN,
@@ -56,6 +128,7 @@ private:
             ESP_LOGE(TAG, "I2C port %d was already initialized before codec setup; remove stale display I2C init or use a free I2C port", AUDIO_CODEC_I2C_NUM);
         }
         ESP_ERROR_CHECK(ret);
+        LogExistingI2cBus("after codec bus init");
     }
 
     void InitializeButtons() {
@@ -123,7 +196,7 @@ public:
             AUDIO_I2S_GPIO_DIN,
             AUDIO_CODEC_PA_PIN,
             AUDIO_CODEC_ES8375_ADDR,
-            false);
+            true);
         return &audio_codec;
     }
 

@@ -21,6 +21,7 @@ private:
     void CreateDuplexChannels(gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din);
     void InitializeCodec(bool use_mclk);
     void ConfigureClock(bool use_mclk);
+    void DumpRegisters();
     void SetCodecPower(bool enable);
     void SetPlaybackMute(bool mute);
     void SetCaptureMute(bool mute);
