@@ -27,7 +27,6 @@ private:
     void SetCaptureMute(bool mute);
 
     bool ProbeCodec(uint8_t es8375_addr);
-    void ScanI2cBus();
     esp_err_t WriteReg(uint8_t reg, uint8_t value);
     esp_err_t ReadReg(uint8_t reg, uint8_t* value);
     void UpdateReg(uint8_t reg, uint8_t mask, uint8_t value);

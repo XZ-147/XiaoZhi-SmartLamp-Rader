@@ -108,22 +108,7 @@ bool Es8375AudioCodec::ProbeCodec(uint8_t es8375_addr) {
     }
 
     ESP_LOGW(TAG, "I2C probe failed at 0x%02x: %s", es8375_addr, esp_err_to_name(ret));
-    ScanI2cBus();
     return false;
-}
-
-void Es8375AudioCodec::ScanI2cBus() {
-    ESP_LOGI(TAG, "Scanning I2C bus for codec candidates...");
-    bool found = false;
-    for (uint8_t addr = 0x08; addr < 0x78; ++addr) {
-        if (i2c_master_probe(i2c_bus_, addr, 50) == ESP_OK) {
-            ESP_LOGI(TAG, "I2C device found at 0x%02x", addr);
-            found = true;
-        }
-    }
-    if (!found) {
-        ESP_LOGW(TAG, "No I2C devices found. Check codec power, reset, SDA/SCL wiring, and pull-ups.");
-    }
 }
 
 esp_err_t Es8375AudioCodec::WriteReg(uint8_t reg, uint8_t value) {
@@ -316,6 +301,8 @@ void Es8375AudioCodec::InitializeCodec(bool use_mclk) {
     esp_err_t sec_ret = ReadReg(ES8375_SECURITY_CODE, &security_code);
     if (id1_ret == ESP_OK && id0_ret == ESP_OK && sec_ret == ESP_OK) {
         ESP_LOGI(TAG, "ES8375 initialized, chip id: %02x %02x security %02x", chip_id1, chip_id0, security_code);
+        ESP_LOGI(TAG, "reg[0x%02x]=0x%02x", ES8375_CHIP_ID1, chip_id1);
+        ESP_LOGI(TAG, "reg[0x%02x]=0x%02x", ES8375_CHIP_ID0, chip_id0);
     } else {
         ESP_LOGW(TAG, "ES8375 register readback failed after init");
     }
