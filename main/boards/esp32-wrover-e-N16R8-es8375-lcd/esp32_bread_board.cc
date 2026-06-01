@@ -7,11 +7,16 @@
 #include "mcp_server.h"
 #include "lamp_controller.h"
 #include "led/single_led.h"
-#include "display/display.h"
+#include "custom_lcd_display.h"
+#include "esp_lcd_panel_st77912.h"
 
 #include <esp_log.h>
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
+#include <driver/spi_common.h>
+#include <esp_lcd_panel_io.h>
+#include <esp_lcd_panel_ops.h>
+#include <esp_lcd_panel_vendor.h>
 
 #define TAG "ESP32-MarsbearSupport"
 
@@ -23,6 +28,67 @@ private:
 
     i2c_master_bus_handle_t codec_i2c_bus_ = nullptr;
     Display* display_ = nullptr;
+
+    void InitializeBacklight() {
+        if (DISPLAY_BACKLIGHT_PIN == GPIO_NUM_NC) {
+            return;
+        }
+
+        gpio_config_t backlight_config = {
+            .pin_bit_mask = 1ULL << DISPLAY_BACKLIGHT_PIN,
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        ESP_ERROR_CHECK(gpio_config(&backlight_config));
+        gpio_set_level(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT ? 0 : 1);
+    }
+
+    void InitializeSpi() {
+        ESP_LOGI(TAG, "Initialize ST77912 SPI bus");
+        spi_bus_config_t bus_config = ST77912_PANEL_BUS_SPI_CONFIG(
+            DISPLAY_CLK_PIN,
+            DISPLAY_MOSI_PIN,
+            DISPLAY_WIDTH * 40 * sizeof(uint16_t));
+        ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &bus_config, SPI_DMA_CH_AUTO));
+    }
+
+    void InitializeSt77912Display() {
+        esp_lcd_panel_io_handle_t panel_io = nullptr;
+        esp_lcd_panel_handle_t panel = nullptr;
+
+        ESP_LOGI(TAG, "Install ST77912 panel IO");
+        esp_lcd_panel_io_spi_config_t io_config = ST77912_PANEL_IO_SPI_CONFIG(
+            DISPLAY_CS_PIN,
+            DISPLAY_DC_PIN,
+            DISPLAY_SPI_SCLK_HZ,
+            nullptr,
+            nullptr);
+        io_config.spi_mode = DISPLAY_SPI_MODE;
+        ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI3_HOST, &io_config, &panel_io));
+
+        ESP_LOGI(TAG, "Install ST77912 panel driver");
+        st77912_vendor_config_t vendor_config = {};
+        esp_lcd_panel_dev_config_t panel_config = {};
+        panel_config.reset_gpio_num = DISPLAY_RST_PIN;
+        panel_config.rgb_ele_order = DISPLAY_RGB_ORDER;
+        panel_config.bits_per_pixel = 16;
+        panel_config.vendor_config = &vendor_config;
+        ESP_ERROR_CHECK(esp_lcd_new_panel_st77912(panel_io, &panel_config, &panel));
+
+        ESP_ERROR_CHECK(esp_lcd_panel_reset(panel));
+        ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
+        ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel, DISPLAY_INVERT_COLOR));
+        ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY));
+        ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y));
+        ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y));
+        ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel, true));
+
+        InitializeBacklight();
+
+        display_ = new CustomLcdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    }
 
     void InitializeCodecI2c() {
         ESP_LOGI(TAG, "Initialize codec I2C port=%d sda=%d scl=%d", AUDIO_CODEC_I2C_NUM, AUDIO_CODEC_I2C_SDA_PIN, AUDIO_CODEC_I2C_SCL_PIN);
@@ -86,7 +152,8 @@ private:
 public:
     CompactWifiBoard() : WifiBoard(), boot_button_(BOOT_BUTTON_GPIO), touch_button_(TOUCH_BUTTON_GPIO), asr_button_(ASR_BUTTON_GPIO)
     {
-        display_ = new NoDisplay();
+        InitializeSpi();
+        InitializeSt77912Display();
         InitializeCodecI2c();
         InitializeButtons();
         InitializeTools();

@@ -28,13 +28,28 @@
 #define ML307_RX_PIN            GPIO_NUM_16
 #define ML307_TX_PIN            GPIO_NUM_17
 
-#define DISPLAY_WIDTH           0
-#define DISPLAY_HEIGHT          0
-#define DISPLAY_MIRROR_X        true
-#define DISPLAY_MIRROR_Y        true
+#define DISPLAY_MOSI_PIN        GPIO_NUM_18  // SDA1
+#define DISPLAY_CLK_PIN         GPIO_NUM_19  // SCL1
+#define DISPLAY_DC_PIN          GPIO_NUM_4   // DC1
+#define DISPLAY_RST_PIN         GPIO_NUM_5   // RES1
+#define DISPLAY_CS_PIN          GPIO_NUM_12  // CS1
+#define DISPLAY_BACKLIGHT_PIN   GPIO_NUM_NC  // LEDA1 is tied to 3V3_3S through R33
+
+#define DISPLAY_WIDTH           240
+#define DISPLAY_HEIGHT          240
+#define DISPLAY_OFFSET_X        0
+#define DISPLAY_OFFSET_Y        0
+#define DISPLAY_MIRROR_X        false
+#define DISPLAY_MIRROR_Y        false
+#define DISPLAY_SWAP_XY         false
+#define DISPLAY_INVERT_COLOR    false
+#define DISPLAY_RGB_ORDER       LCD_RGB_ELEMENT_ORDER_RGB
+#define DISPLAY_SPI_MODE        0
+#define DISPLAY_SPI_SCLK_HZ     (20 * 1000 * 1000)
+#define DISPLAY_BACKLIGHT_OUTPUT_INVERT false
 
 
 // A MCP Test: Control a lamp
-#define LAMP_GPIO GPIO_NUM_18
+#define LAMP_GPIO GPIO_NUM_NC
 
 #endif // _BOARD_CONFIG_H_
