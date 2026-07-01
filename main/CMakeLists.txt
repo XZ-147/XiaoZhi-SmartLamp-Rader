@@ -997,6 +997,7 @@ idf_component_register(SRCS ${SOURCES}
                         esp_driver_jpeg
                         esp_driver_ppa
                         esp_app_format
+                        esp_lcd_st77912
                         app_update
                         spi_flash
                         console

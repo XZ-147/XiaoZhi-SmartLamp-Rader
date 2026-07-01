@@ -21,12 +21,12 @@
 #define AUDIO_CODEC_ES8375_ADDR ES8375_CODEC_DEFAULT_ADDR
 
 #define BOOT_BUTTON_GPIO        GPIO_NUM_0
-#define TOUCH_BUTTON_GPIO       GPIO_NUM_5
-#define ASR_BUTTON_GPIO         GPIO_NUM_19
+#define TOUCH_BUTTON_GPIO       GPIO_NUM_13
+#define ASR_BUTTON_GPIO         GPIO_NUM_NC
 #define BUILTIN_LED_GPIO        GPIO_NUM_2
 
-#define ML307_RX_PIN            GPIO_NUM_16
-#define ML307_TX_PIN            GPIO_NUM_17
+//#define ML307_RX_PIN            GPIO_NUM_16
+//#define ML307_TX_PIN            GPIO_NUM_17
 
 #define DISPLAY_MOSI_PIN        GPIO_NUM_18  // SDA1
 #define DISPLAY_CLK_PIN         GPIO_NUM_19  // SCL1

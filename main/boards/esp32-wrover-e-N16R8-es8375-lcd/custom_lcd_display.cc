@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <vector>
 
-#include "esp_check.h"
 #include "esp_log.h"
 #include "freertos/task.h"
 
@@ -58,7 +57,7 @@ void CustomLcdDisplay::SetupUI()
     }
 
     Display::SetupUI();
-    RunColorTest();
+     RunColorTest();
 }
 
 void CustomLcdDisplay::FillColor(uint16_t rgb565)
@@ -77,10 +76,9 @@ void CustomLcdDisplay::FillColor(uint16_t rgb565)
 
     for (int y = 0; y < height_; y += lines_per_chunk) {
         int y_end = std::min(y + lines_per_chunk, height_);
-        int active_lines = y_end - y;
         esp_err_t err = esp_lcd_panel_draw_bitmap(panel_, 0, y, width_, y_end, line_buffer.data());
         if (err != ESP_OK) {
-            ESP_LOGE(TAG, "draw color failed at y=%d lines=%d: %s", y, active_lines, esp_err_to_name(err));
+            ESP_LOGE(TAG, "draw color failed at y=%d: %s", y, esp_err_to_name(err));
             return;
         }
     }

@@ -8,7 +8,7 @@
 #include "lamp_controller.h"
 #include "led/single_led.h"
 #include "custom_lcd_display.h"
-#include "esp_lcd_panel_st77912.h"
+#include "esp_lcd_st77912.h"
 
 #include <esp_log.h>
 #include <driver/gpio.h>
@@ -30,10 +30,7 @@ private:
     Display* display_ = nullptr;
 
     void InitializeBacklight() {
-        if (DISPLAY_BACKLIGHT_PIN == GPIO_NUM_NC) {
-            return;
-        }
-
+#if DISPLAY_BACKLIGHT_PIN != GPIO_NUM_NC
         gpio_config_t backlight_config = {
             .pin_bit_mask = 1ULL << DISPLAY_BACKLIGHT_PIN,
             .mode = GPIO_MODE_OUTPUT,
@@ -43,14 +40,18 @@ private:
         };
         ESP_ERROR_CHECK(gpio_config(&backlight_config));
         gpio_set_level(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT ? 0 : 1);
+#endif
     }
 
     void InitializeSpi() {
         ESP_LOGI(TAG, "Initialize ST77912 SPI bus");
-        spi_bus_config_t bus_config = ST77912_PANEL_BUS_SPI_CONFIG(
-            DISPLAY_CLK_PIN,
-            DISPLAY_MOSI_PIN,
-            DISPLAY_WIDTH * 40 * sizeof(uint16_t));
+        spi_bus_config_t bus_config = {};
+        bus_config.mosi_io_num = DISPLAY_MOSI_PIN;
+        bus_config.miso_io_num = GPIO_NUM_NC;
+        bus_config.sclk_io_num = DISPLAY_CLK_PIN;
+        bus_config.quadwp_io_num = GPIO_NUM_NC;
+        bus_config.quadhd_io_num = GPIO_NUM_NC;
+        bus_config.max_transfer_sz = DISPLAY_WIDTH * 40 * sizeof(uint16_t);
         ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &bus_config, SPI_DMA_CH_AUTO));
     }
 
@@ -62,9 +63,9 @@ private:
         esp_lcd_panel_io_spi_config_t io_config = ST77912_PANEL_IO_SPI_CONFIG(
             DISPLAY_CS_PIN,
             DISPLAY_DC_PIN,
-            DISPLAY_SPI_SCLK_HZ,
             nullptr,
             nullptr);
+        io_config.pclk_hz = DISPLAY_SPI_SCLK_HZ;
         io_config.spi_mode = DISPLAY_SPI_MODE;
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI3_HOST, &io_config, &panel_io));
 

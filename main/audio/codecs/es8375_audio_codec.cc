@@ -26,6 +26,9 @@
 #define ES8375_LRCK_DIV_L        0x0D
 #define ES8375_SPK_CLK_DIV       0x0E
 #define ES8375_PWR_STATE         0x0F
+#define ES8375_CSM2              0x10
+#define ES8375_VMID_CHARGE2      0x11
+#define ES8375_VMID_CHARGE3      0x12
 #define ES8375_SDP_CFG           0x15
 #define ES8375_ADC_OUT_SEL       0x16
 #define ES8375_ADC_SRC_GAIN      0x17
@@ -36,12 +39,18 @@
 #define ES8375_DAC_SYNC_RAMP     0x20
 #define ES8375_DAC_VOLUME        0x21
 #define ES8375_DAC_SCALE         0x22
+#define ES8375_DAC_AUTOMUTE1     0x23
+#define ES8375_DAC_AUTOMUTE      0x24
+#define ES8375_DAC_CAL           0x25
 #define ES8375_OTP_CTRL          0x27
 #define ES8375_SPK_EN            0x28
 #define ES8375_SPK_PWR           0x29
 #define ES8375_SPK_BIAS          0x2A
 #define ES8375_SPK_VOL           0x2B
+#define ES8375_VMID_SEL          0x2D
 #define ES8375_ANA_EN            0x2E
+#define ES8375_ANALOG_VSEL2      0x30
+#define ES8375_ANALOG_BIAS_DAC   0x31
 #define ES8375_ADC_ANA_EN        0x32
 #define ES8375_PGA_GAIN          0x37
 #define ES8375_SYS_IO_CTRL       0xF8
@@ -50,6 +59,17 @@
 #define ES8375_CHIP_ID1          0xFD
 #define ES8375_CHIP_ID0          0xFE
 #define ES8375_SECURITY_CODE     0xFF
+
+constexpr uint8_t ES8375_DAC_CTRL_UNMUTED = 0x04;
+constexpr uint8_t ES8375_SPK1_CLASSD_ON = 0xEC;
+constexpr uint8_t ES8375_SPK2_DAC_TO_SPK_ON = 0xE3;
+constexpr uint8_t ES8375_SPK_BIAS_NORMAL_400K = 0xA8;
+constexpr uint8_t ES8375_SPK_VOLUME_PLUS_3DB = 0xBF;
+constexpr uint8_t ES8375_ANALOG_DAC_SPK_ON = 0xF8;
+constexpr uint8_t ES8375_ANALOG_VSEL2_VENDOR = 0x05;
+constexpr uint8_t ES8375_ANALOG_BIAS_DAC_VENDOR = 0xCC;
+constexpr uint8_t ES8375_VENDOR_DAC_CAL = 0x2F;
+constexpr uint8_t ES8375_VENDOR_ANALOG_EN_PROBE = 0xB8;
 
 Es8375AudioCodec::Es8375AudioCodec(void* i2c_master_handle, i2c_port_t i2c_port, int input_sample_rate, int output_sample_rate,
     gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din,
@@ -79,13 +99,13 @@ Es8375AudioCodec::Es8375AudioCodec(void* i2c_master_handle, i2c_port_t i2c_port,
     ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c_bus_, &i2c_device_cfg, &i2c_device_));
     ESP_LOGI(TAG, "ES8375 I2C port=%d addr=0x%02x", i2c_port, es8375_addr);
 
+    CreateDuplexChannels(use_mclk ? mclk : GPIO_NUM_NC, bclk, ws, dout, din);
     if (codec_present) {
         InitializeCodec(use_mclk);
     } else {
         codec_ready_ = false;
         ESP_LOGW(TAG, "ES8375 was not detected; skip register initialization");
     }
-    CreateDuplexChannels(use_mclk ? mclk : GPIO_NUM_NC, bclk, ws, dout, din);
 }
 
 Es8375AudioCodec::~Es8375AudioCodec() {
@@ -154,11 +174,15 @@ void Es8375AudioCodec::DumpRegisters() {
         ES8375_PRE_DIV_DLL, ES8375_DMIC_DIV_DAC_CLK, ES8375_ADC_CLK_SEL,
         ES8375_ADCDAC_DSP_CLK, ES8375_ADC_OSR, ES8375_DAC_HOLD,
         ES8375_OSC_CTRL, ES8375_BCLK_DIV, ES8375_LRCK_DIV_H, ES8375_LRCK_DIV_L,
-        ES8375_PWR_STATE, ES8375_SDP_CFG, ES8375_ADC_OUT_SEL,
+        ES8375_SPK_CLK_DIV, ES8375_PWR_STATE, ES8375_CSM2,
+        ES8375_VMID_CHARGE2, ES8375_VMID_CHARGE3, ES8375_SDP_CFG, ES8375_ADC_OUT_SEL,
         ES8375_ADC_SRC_GAIN, ES8375_ADC_SYNC_RAMP, ES8375_ADC_OSR_GAIN,
         ES8375_ADC_VOLUME, ES8375_DAC_CTRL, ES8375_DAC_VOLUME,
-        ES8375_DAC_SCALE, ES8375_SPK_EN, ES8375_SPK_PWR, ES8375_ANA_EN,
-        ES8375_ADC_ANA_EN, ES8375_PGA_GAIN, ES8375_SYS_IO_CTRL,
+        ES8375_DAC_SCALE, ES8375_DAC_AUTOMUTE1, ES8375_DAC_AUTOMUTE,
+        ES8375_DAC_CAL, ES8375_SPK_EN, ES8375_SPK_PWR, ES8375_SPK_BIAS,
+        ES8375_SPK_VOL, ES8375_VMID_SEL, ES8375_ANA_EN,
+        ES8375_ANALOG_VSEL2, ES8375_ANALOG_BIAS_DAC, ES8375_ADC_ANA_EN,
+        ES8375_PGA_GAIN, ES8375_SYS_IO_CTRL,
         ES8375_ISOLATE, ES8375_FLAG, ES8375_CHIP_ID1, ES8375_CHIP_ID0,
         ES8375_SECURITY_CODE,
     };
@@ -237,11 +261,24 @@ void Es8375AudioCodec::ConfigureClock(bool use_mclk) {
     // codec derives its internal main clock from BCLK; this avoids ESP32
     // classic MCLK output limits.
     WriteReg(ES8375_SUB_RST, 0x00);
-    WriteReg(ES8375_CLK_EN, use_mclk ? 0xBE : 0x7E);
-    WriteReg(ES8375_CLK_SEL, use_mclk ? 0x00 : 0x80);
-    WriteReg(ES8375_PRE_DIV_DLL, 0x05);
 
-    if (!use_mclk && input_sample_rate_ == 16000) {
+    if (use_mclk && input_sample_rate_ == 16000) {
+        // 16 kHz with 4.096 MHz MCLK (256Fs) uses the validated ES8375 clock path.
+        WriteReg(ES8375_CLK_EN, 0xFE);
+        WriteReg(ES8375_CLK_SEL, 0x00);
+        WriteReg(ES8375_PRE_DIV_DLL, 0x0B);
+        WriteReg(ES8375_DMIC_DIV_DAC_CLK, 0x01);
+        WriteReg(ES8375_ADC_CLK_SEL, 0x33);
+        WriteReg(ES8375_ADCDAC_DSP_CLK, 0x11);
+        WriteReg(ES8375_OSC_CTRL, 0x95);
+        WriteReg(ES8375_BCLK_DIV, 0x03);
+        WriteReg(ES8375_LRCK_DIV_H, 0x20);
+        WriteReg(ES8375_LRCK_DIV_L, 0xFF);
+    } else if (!use_mclk && input_sample_rate_ == 16000) {
+        WriteReg(ES8375_CLK_EN, 0x7E);
+        WriteReg(ES8375_CLK_SEL, 0x80);
+        WriteReg(ES8375_PRE_DIV_DLL, 0x05);
+
         // BCLK = 16 kHz * 16 bits * 2 slots = 512 kHz.
         WriteReg(ES8375_DMIC_DIV_DAC_CLK, 0x34);
         WriteReg(ES8375_ADC_CLK_SEL, 0xDD);
@@ -255,6 +292,10 @@ void Es8375AudioCodec::ConfigureClock(bool use_mclk) {
         WriteReg(ES8375_SPK_CLK_DIV, 0x00);
         WriteReg(ES8375_ADC_OSR_GAIN, 0x1F);
     } else {
+        WriteReg(ES8375_CLK_EN, use_mclk ? 0xBE : 0x7E);
+        WriteReg(ES8375_CLK_SEL, use_mclk ? 0x00 : 0x80);
+        WriteReg(ES8375_PRE_DIV_DLL, 0x05);
+
         // Common 12.288 MHz / 48 kHz style default for boards that provide MCLK.
         WriteReg(ES8375_DMIC_DIV_DAC_CLK, 0x08);
         WriteReg(ES8375_ADC_CLK_SEL, 0x10);
@@ -276,20 +317,50 @@ void Es8375AudioCodec::InitializeCodec(bool use_mclk) {
     WriteReg(ES8375_RST_CTRL, 0x00);
     vTaskDelay(pdMS_TO_TICKS(20));
 
+    WriteReg(ES8375_OSC_CTRL, 0x95);
+    WriteReg(ES8375_CLK_SEL, 0x48);
+    WriteReg(ES8375_SPK_CLK_DIV, 0x18);
+    WriteReg(ES8375_PRE_DIV_DLL, 0x02);
+    WriteReg(ES8375_DMIC_DIV_DAC_CLK, 0x05);
+    WriteReg(ES8375_PWR_STATE, 0x82);
+    WriteReg(ES8375_VMID_CHARGE2, 0x10);
+    WriteReg(ES8375_VMID_CHARGE3, 0x10);
+    WriteReg(ES8375_DAC_CAL, ES8375_VENDOR_DAC_CAL);
+    WriteReg(ES8375_SPK_EN, ES8375_SPK1_CLASSD_ON);
+    WriteReg(ES8375_SPK_PWR, 0xE0);
+    WriteReg(ES8375_VMID_SEL, 0xFE);
+    WriteReg(ES8375_ANA_EN, ES8375_VENDOR_ANALOG_EN_PROBE);
+    WriteReg(ES8375_ANALOG_VSEL2, ES8375_ANALOG_VSEL2_VENDOR);
+    WriteReg(ES8375_ANALOG_BIAS_DAC, ES8375_ANALOG_BIAS_DAC_VENDOR);
+    WriteReg(ES8375_ISOLATE, 0x03);
+    WriteReg(ES8375_CLK_EN, 0x16);
+    WriteReg(ES8375_RST_CTRL, 0x00);
+    vTaskDelay(pdMS_TO_TICKS(80));
+
     ConfigureClock(use_mclk);
 
-    WriteReg(ES8375_ANA_EN, 0xF8);
-    WriteReg(ES8375_ADC_ANA_EN, 0xF0);
-    WriteReg(ES8375_OTP_CTRL, 0x80);
+    WriteReg(ES8375_PWR_STATE, 0x86);
     WriteReg(ES8375_ADC_SRC_GAIN, 0x00);
     WriteReg(ES8375_ADC_SYNC_RAMP, 0x00);
-    WriteReg(ES8375_DAC_CTRL, 0x04);
+    WriteReg(ES8375_DAC_CTRL, ES8375_DAC_CTRL_UNMUTED);
     WriteReg(ES8375_DAC_SYNC_RAMP, 0x00);
+    WriteReg(ES8375_DAC_VOLUME, 0xBF);
     WriteReg(ES8375_DAC_SCALE, 0x1F);
+    WriteReg(ES8375_DAC_AUTOMUTE1, 0x00);
+    WriteReg(ES8375_DAC_AUTOMUTE, 0x00);
+    WriteReg(ES8375_DAC_CAL, 0x28);
+    WriteReg(ES8375_OTP_CTRL, 0x88);
+    WriteReg(ES8375_SPK_EN, ES8375_SPK1_CLASSD_ON);
+    WriteReg(ES8375_SPK_PWR, ES8375_SPK2_DAC_TO_SPK_ON);
+    WriteReg(ES8375_SPK_BIAS, ES8375_SPK_BIAS_NORMAL_400K);
+    WriteReg(ES8375_SPK_VOL, ES8375_SPK_VOLUME_PLUS_3DB);
+    WriteReg(ES8375_VMID_SEL, 0xFE);
+    WriteReg(ES8375_ANA_EN, ES8375_ANALOG_DAC_SPK_ON);
+    WriteReg(ES8375_ADC_ANA_EN, 0xF0);
+    WriteReg(ES8375_ISOLATE, 0x03);
     WriteReg(ES8375_PGA_GAIN, 0x40 | 0x0A);
     WriteReg(ES8375_ADC_VOLUME, 0xBF);
-    WriteReg(ES8375_DAC_VOLUME, 0xBF);
-    WriteReg(ES8375_PWR_STATE, 0xA0);
+    WriteReg(ES8375_SYS_IO_CTRL, 0x0F);
     SetPlaybackMute(true);
     SetCaptureMute(true);
 
@@ -325,7 +396,7 @@ void Es8375AudioCodec::SetCodecPower(bool enable) {
     if (!codec_ready_) {
         return;
     }
-    WriteReg(ES8375_PWR_STATE, enable ? 0xA0 : 0x90);
+    WriteReg(ES8375_PWR_STATE, enable ? 0xA6 : 0x90);
 }
 
 void Es8375AudioCodec::SetPlaybackMute(bool mute) {
@@ -379,8 +450,14 @@ void Es8375AudioCodec::EnableInput(bool enable) {
     if (enable == input_enabled_) {
         return;
     }
-    SetCodecPower(enable || output_enabled_);
-    SetCaptureMute(!enable);
+    if (enable) {
+        SetCodecPower(true);
+        SetCaptureMute(false);
+        vTaskDelay(pdMS_TO_TICKS(120));
+    } else {
+        SetCodecPower(output_enabled_);
+        SetCaptureMute(true);
+    }
     AudioCodec::EnableInput(enable);
 }
 
