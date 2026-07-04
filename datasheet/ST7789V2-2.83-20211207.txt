@@ -1,0 +1,86 @@
+HW_Reset();      
+          
+Delay(120);                //ms            
+
+Write(Command , 0x11);   
+  
+Delay(120);                //ms            
+
+Write(Command , 0x36);     
+Write(Parameter , 0x00);   
+
+Write(Command , 0x3A);     
+Write(Parameter , 0x06);   
+
+Write(Command , 0xB2);     
+Write(Parameter , 0x0C);   
+Write(Parameter , 0x0C);   
+Write(Parameter , 0x00);   
+Write(Parameter , 0x33);   
+Write(Parameter , 0x33);   
+
+Write(Command , 0xB7);     
+Write(Parameter , 0x46);   //VGH=13.65V,VGL=-11.38V
+
+Write(Command , 0xBB);     
+Write(Parameter , 0x1B);   
+
+Write(Command , 0xC0);     
+Write(Parameter , 0x2C);   
+
+Write(Command , 0xC2);     
+Write(Parameter , 0x01);   
+
+Write(Command , 0xC3);     
+Write(Parameter , 0x0F);   
+
+Write(Command , 0xC4);     
+Write(Parameter , 0x20);   
+
+Write(Command , 0xC6);     
+Write(Parameter , 0x0F);   
+
+Write(Command , 0xD0);     
+Write(Parameter , 0xA4);   
+Write(Parameter , 0xA1);   
+
+Write(Command , 0xD6);     
+Write(Parameter , 0xA1); 
+
+Write(Command , 0xE0);
+Write(Parameter , 0xF0);
+Write(Parameter , 0x00);
+Write(Parameter , 0x06);
+Write(Parameter , 0x04);
+Write(Parameter , 0x05);
+Write(Parameter , 0x05);
+Write(Parameter , 0x31);
+Write(Parameter , 0x44);
+Write(Parameter , 0x48);
+Write(Parameter , 0x36);
+Write(Parameter , 0x12);
+Write(Parameter , 0x12);
+Write(Parameter , 0x2B);
+Write(Parameter , 0x34);
+
+Write(Command , 0xE1);
+Write(Parameter , 0xF0);
+Write(Parameter , 0x0B);
+Write(Parameter , 0x0F);
+Write(Parameter , 0x0F);
+Write(Parameter , 0x0D);
+Write(Parameter , 0x26);
+Write(Parameter , 0x31);
+Write(Parameter , 0x43);
+Write(Parameter , 0x47);
+Write(Parameter , 0x38);
+Write(Parameter , 0x14);
+Write(Parameter , 0x14);
+Write(Parameter , 0x2C);
+Write(Parameter , 0x32);
+
+Write(Command , 0x21);  
+
+Write(Command , 0x29);     
+
+Write(Command , 0x2C); 
